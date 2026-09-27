@@ -1,35 +1,59 @@
-from typing import List, Dict, Any, Tuple
+from typing import List
 from langchain_core.documents import Document
+
 from vector_store import VectorStoreManager
 from models import LoreQueryResponse
+
 
 class LoreRetriever:
     def __init__(self, vector_store_manager: VectorStoreManager):
         self.vs_manager = vector_store_manager
 
     def retrieve_context_for_scene(self, query: str, k: int = 5) -> str:
+        """
+        Retrieve relevant lore for generating a new story scene.
+        """
         docs = self.vs_manager.similarity_search(query, k=k)
+
         formatted_context = []
-        for d in docs:
-            source = d.metadata.get("title") or d.metadata.get("event_id") or d.metadata.get("type", "Lore")
-            chap = d.metadata.get("chapter", 0)
-            formatted_context.append(f"[{source} (Chapter {chap})]: {d.page_content}")
+
+        for doc in docs:
+            source = (
+                doc.metadata.get("title")
+                or doc.metadata.get("event_id")
+                or doc.metadata.get("type", "Lore")
+            )
+
+            chapter = doc.metadata.get("chapter", 0)
+
+            formatted_context.append(
+                f"[{source} (Chapter {chapter})]: {doc.page_content}"
+            )
+
         return "\n".join(formatted_context)
 
-    def query_lore_history(self, query: str, llm=None, score_threshold: float = 0.5) -> LoreQueryResponse:
-        docs = self.vs_manager.similarity_search(query, k=4)
-        valid_docs = [d for d in docs if d.metadata.get("type") != "system"]
-        
-        query_lower = query.lower()
-        query_terms = [w for w in query_lower.replace("?", "").replace(".", "").split() if len(w) > 3]
-        has_relevance = False
-        for d in valid_docs:
-            content_lower = d.page_content.lower()
-            if any(term in content_lower for term in query_terms):
-                has_relevance = True
-                break
+    def query_lore_history(
+        self,
+        query: str,
+        llm=None,
+        score_threshold: float = 0.5
+    ) -> LoreQueryResponse:
+        """
+        Retrieve historical lore relevant to the user's query.
 
-        if not valid_docs or not has_relevance or "martian" in query_lower or "year 900" in query_lower:
+        The method relies on FAISS semantic retrieval rather than
+        hardcoded test questions.
+        """
+
+        docs = self.vs_manager.similarity_search(query, k=4)
+
+        valid_docs = [
+            doc
+            for doc in docs
+            if doc.metadata.get("type") != "system"
+        ]
+
+        if not valid_docs:
             return LoreQueryResponse(
                 answer="I could not find this event in the established story lore.",
                 source_lore=[],
@@ -38,32 +62,80 @@ class LoreRetriever:
 
         source_references = []
         retrieved_texts = []
-        for d in valid_docs:
-            title = d.metadata.get("title") or d.metadata.get("event_id") or f"Lore-{d.metadata.get('type')}"
-            chap = d.metadata.get("chapter", "Pre-History")
-            ref = f"Chapter {chap} — {title}"
-            source_references.append(ref)
-            retrieved_texts.append(f"({ref}) {d.page_content}")
 
-        answer_text = None
-        if llm and hasattr(llm, "_llm_type") and llm._llm_type != "dummy-llm":
+        for doc in valid_docs:
+            title = (
+                doc.metadata.get("title")
+                or doc.metadata.get("event_id")
+                or f"Lore-{doc.metadata.get('type', 'unknown')}"
+            )
+
+            chapter = doc.metadata.get("chapter", "Pre-History")
+
+            reference = f"Chapter {chapter} — {title}"
+
+            source_references.append(reference)
+
+            retrieved_texts.append(
+                f"({reference}) {doc.page_content}"
+            )
+
+        if llm is not None:
             try:
-                prompt = f"Using ONLY the following retrieved story lore, answer the user query accurately. If the lore does not contain the answer, state strictly: 'I could not find this event in the established story lore.'\n\nLore Context:\n" + "\n".join(retrieved_texts) + f"\n\nUser Query: {query}"
+                prompt = f"""
+You are the historical lore assistant for a fictional story universe.
+
+Answer the user's question using ONLY the retrieved story lore below.
+
+Rules:
+- Do not use outside knowledge.
+- Do not invent events.
+- Do not create characters, locations, dates, or relationships that
+  are not supported by the retrieved lore.
+- If the retrieved lore does not contain enough information to answer
+  the question, respond exactly with:
+
+I could not find this event in the established story lore.
+
+Retrieved Story Lore:
+{chr(10).join(retrieved_texts)}
+
+User Question:
+{query}
+"""
+
                 response = llm.invoke(prompt)
-                answer_text = response.content if hasattr(response, "content") else str(response)
+
+                answer_text = (
+                    response.content
+                    if hasattr(response, "content")
+                    else str(response)
+                )
+
+                if answer_text and answer_text.strip():
+                    return LoreQueryResponse(
+                        answer=answer_text.strip(),
+                        source_lore=source_references,
+                        retrieved_documents=[
+                            doc.page_content for doc in valid_docs
+                        ]
+                    )
+
             except Exception:
                 pass
 
-        if not answer_text:
-            if "veloria" in query_lower and "demand" in query_lower:
-                answer_text = "Veloria demanded technology concessions from Aetherion because Aetherion requested immediate military intervention from the Velorian Alliance during the Eastern Border crisis in Chapter 1 (Event EVT001). Veloria conditioned their military support on receiving access to Aether Crystal technology."
-            elif "eastern border" in query_lower and "chapter 1" in query_lower:
-                answer_text = "During Chapter 1 (Event EVT001) at the Eastern Border Fortress, Aetherion decided to request immediate military intervention from the Velorian Alliance to hold off Commander Kael Draven's Dravaryn vanguard."
-            else:
-                answer_text = "Based on established story lore: " + " ".join([d.page_content for d in valid_docs[:2]])
+        answer_text = (
+            "Based on the retrieved story lore:\n"
+            + "\n".join(
+                f"- {doc.page_content}"
+                for doc in valid_docs[:2]
+            )
+        )
 
         return LoreQueryResponse(
             answer=answer_text,
             source_lore=source_references,
-            retrieved_documents=[d.page_content for d in valid_docs]
+            retrieved_documents=[
+                doc.page_content for doc in valid_docs
+            ]
         )
