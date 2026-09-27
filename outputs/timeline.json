@@ -1,0 +1,20 @@
+[
+  {
+    "year_or_era": "Year 127",
+    "title": "Discovery of Aether Crystals",
+    "description": "Aetherion miners uncover crystalline energy veins beneath Elyra",
+    "key_factions": [
+      "Aetherion"
+    ],
+    "impact": "Revolutionized continental power generation and sky travel"
+  },
+  {
+    "year_or_era": "Year 148",
+    "title": "The Dravaryn Expansion",
+    "description": "Dravaryn armies annex northern borderlands",
+    "key_factions": [
+      "Dravaryn Empire"
+    ],
+    "impact": "Ignited the Great Northern War"
+  }
+]

@@ -1,0 +1,12 @@
+Role: Narrative Dynamics Specialist
+Task: Generate complex relationships between generated characters in the fictional universe.
+Input: World Context: {world_context}
+Characters: {character_list}
+Existing Lore: {lore_context}
+
+Rules & Constraints:
+1. Define meaningful dynamics between pairs of characters (Ally, Rival, Family, Mentor, Student, Enemy, Friend, Romantic Interest, Political Alliance, Former Ally).
+2. Detail the exact origin, history, and reason for each relationship based on world history and character backstories.
+3. Ensure relationships reflect opposing or complementary motivations and goals.
+
+Output Format: Respond strictly in structured format conforming to the requested schema.

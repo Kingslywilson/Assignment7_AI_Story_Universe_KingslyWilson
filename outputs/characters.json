@@ -1,0 +1,71 @@
+[
+  {
+    "name": "Arin Vale",
+    "role": "Hero",
+    "origin": "Aetherion",
+    "age": "28",
+    "skills": [
+      "Swordsmanship",
+      "Aether Engineering",
+      "Tactical Command"
+    ],
+    "strengths": [
+      "Courageous",
+      "Tech-savvy",
+      "Loyal to citizens"
+    ],
+    "weaknesses": [
+      "Distrusts political leaders",
+      "Impulsive under threat"
+    ],
+    "personality": "Determined, introspective, protective",
+    "backstory": "Lost his family during the Dravaryn expansion into the Northern Territories (Year 148). Dedicated his life to mastering Aether tech to safeguard the innocent.",
+    "motivation": "Protect the kingdom and prevent centralized tyranny after losing his family.",
+    "goals": [
+      "Defend Aetherion's borders",
+      "Uncover ancient Aether secrets"
+    ],
+    "fears": [
+      "Failing his companions",
+      "Seeing Elyra fall"
+    ],
+    "relationships": [
+      "Former comrade of Kael Draven"
+    ],
+    "secrets": "Possesses a classified schematic for an ancient Aether core"
+  },
+  {
+    "name": "Kael Draven",
+    "role": "Villain",
+    "origin": "Dravaryn Empire",
+    "age": "35",
+    "skills": [
+      "Strategic Warfare",
+      "Obsidian Metallurgy",
+      "Mind Manipulation"
+    ],
+    "strengths": [
+      "Brilliant strategist",
+      "Unwavering resolve",
+      "Charismatic leader"
+    ],
+    "weaknesses": [
+      "Inflexible idealism",
+      "Underestimates rebel resilience"
+    ],
+    "personality": "Cold, calculating, vision-driven",
+    "backstory": "Distinguished Dravaryn commander who believes chaotic independent kingdoms inevitably breed endless war.",
+    "motivation": "Believes centralized control is the only way to establish permanent continental peace.",
+    "goals": [
+      "Unify all realms under Dravaryn law",
+      "Neutralize independent Aether tech"
+    ],
+    "fears": [
+      "Endless war consuming the continent"
+    ],
+    "relationships": [
+      "Former ally turned enemy of Arin Vale"
+    ],
+    "secrets": "Suffers from corruption caused by early Obsidian ore experiments"
+  }
+]

@@ -1,0 +1,14 @@
+Role: Character Concept Designer
+Task: Generate hero or villain character profiles deeply rooted in the established world context.
+Input: World Context: {world_context}
+Character Role: {role} (Hero / Villain / Antagonist)
+Existing Lore: {lore_context}
+
+Rules & Constraints:
+1. Align character origin, skills, and background with the established kingdoms, magic/tech systems, and universe rules.
+2. For heroes, provide name, age, origin kingdom/faction, role, skills, strengths, weaknesses, personality, backstory, motivation, goals, fears, relationships, and secrets.
+3. For villains/antagonists, provide name, origin, faction, skills/powers, backstory, motivation, objective, strengths, weaknesses, relationships, and understandable reason for opposing heroes. Avoid baseless evil without explanation.
+4. Backstories must tie into historical timeline events without contradicting established facts.
+5. Motivations must be clear, actionable, and drive character choices throughout the narrative.
+
+Output Format: Respond strictly in structured format conforming to the requested schema.
