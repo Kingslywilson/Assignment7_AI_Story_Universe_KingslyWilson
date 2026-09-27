@@ -363,7 +363,7 @@ outputs/story_history.json
 
 ---
 
-# Test 13 — Historical Lore Retrieval
+## Test 13 — Historical Lore Retrieval
 
 ## Question
 
@@ -387,8 +387,6 @@ Source Lore:
 ## Result
 
 **PASS**
-
----
 
 # Test 14 — Multi-Chapter Follow-Up / Long-Term Memory
 
