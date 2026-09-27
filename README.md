@@ -172,7 +172,7 @@ Establish permanent continental peace through centralized control.
 
 ### AI / LLM Framework
 
-* LangChain
+* LangChain 1.4.2
 
 ### LLM
 
@@ -532,8 +532,6 @@ Activate it:
 ```powershell
 pip install -r requirements.txt
 ```
-
-If required by the installed LangChain version, install the Hugging Face integration:
 
 ```powershell
 pip install -U langchain-huggingface
