@@ -532,11 +532,6 @@ Activate it:
 ```powershell
 pip install -r requirements.txt
 ```
-
-```powershell
-pip install -U langchain-huggingface
-```
-
 ---
 
 ### Step 3 — Configure Environment Variables
