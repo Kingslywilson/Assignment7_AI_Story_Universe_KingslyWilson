@@ -56,12 +56,12 @@ class VectorStoreManager:
         text: str,
         metadata: Dict[str, Any]
     ):
-        doc = Document(
+        document = Document(
             page_content=text,
             metadata=metadata
         )
 
-        self.vector_store.add_documents([doc])
+        self.vector_store.add_documents([document])
         self.save()
 
     def add_lore_documents(
@@ -87,7 +87,7 @@ class VectorStoreManager:
     def similarity_search_with_score(
         self,
         query: str,
-        k: int = 4
+        k: int = 6
     ) -> List[Tuple[Document, float]]:
 
         return self.vector_store.similarity_search_with_score(

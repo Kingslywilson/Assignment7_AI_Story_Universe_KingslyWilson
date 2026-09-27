@@ -1,4 +1,5 @@
-from typing import List
+import re
+from typing import List, Set
 
 from langchain_core.documents import Document
 
@@ -13,11 +14,127 @@ UNKNOWN_LORE = (
 
 class LoreRetriever:
 
+    STOP_WORDS: Set[str] = {
+        "a", "an", "and", "are", "as", "at", "be", "been",
+        "by", "can", "did", "do", "does", "for", "from",
+        "had", "has", "have", "how", "in", "is", "it", "its",
+        "of", "on", "or", "that", "the", "their", "them",
+        "there", "this", "to", "was", "what", "when",
+        "where", "which", "who", "why", "with", "would",
+        "chapter", "event", "story", "lore", "information",
+        "tell", "explain", "happened", "decision"
+    }
+
     def __init__(
         self,
         vector_store_manager: VectorStoreManager
     ):
         self.vs_manager = vector_store_manager
+
+    def _tokenize(self, text: str) -> Set[str]:
+        words = re.findall(
+            r"[A-Za-z0-9]+",
+            text.lower()
+        )
+
+        return {
+            word
+            for word in words
+            if len(word) >= 3
+            and word not in self.STOP_WORDS
+        }
+
+    def _get_document_text(self, doc: Document) -> str:
+        metadata_text = []
+
+        for key in (
+            "title",
+            "event_id",
+            "name",
+            "location",
+            "year",
+            "role",
+            "characters"
+        ):
+            value = doc.metadata.get(key)
+
+            if value is None:
+                continue
+
+            if isinstance(value, list):
+                metadata_text.extend(
+                    str(item)
+                    for item in value
+                )
+            else:
+                metadata_text.append(str(value))
+
+        return (
+            " ".join(metadata_text)
+            + " "
+            + doc.page_content
+        )
+
+    def _find_relevant_documents(
+        self,
+        query: str,
+        scored_docs
+    ) -> List[Document]:
+
+        query_terms = self._tokenize(query)
+
+        candidates = []
+
+        for doc, score in scored_docs:
+
+            if doc.metadata.get("type") == "system":
+                continue
+
+            document_text = self._get_document_text(doc)
+            document_terms = self._tokenize(document_text)
+
+            overlap = query_terms.intersection(
+                document_terms
+            )
+
+            # At least two meaningful query terms must
+            # appear in the retrieved lore.
+            if len(overlap) >= 2:
+                candidates.append(
+                    (
+                        len(overlap),
+                        score,
+                        doc
+                    )
+                )
+
+        # More lexical overlap first.
+        # Lower FAISS distance second.
+        candidates.sort(
+            key=lambda item: (
+                -item[0],
+                item[1]
+            )
+        )
+
+        result = []
+        seen = set()
+
+        for overlap_count, score, doc in candidates:
+
+            key = (
+                doc.metadata.get("event_id"),
+                doc.metadata.get("title"),
+                doc.page_content
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            result.append(doc)
+
+        return result
 
     def retrieve_context_for_scene(
         self,
@@ -70,51 +187,22 @@ class LoreRetriever:
     def query_lore_history(
         self,
         query: str,
-        llm=None,
-        score_threshold: float = 0.20
+        llm=None
     ) -> LoreQueryResponse:
 
         scored_docs = (
             self.vs_manager.similarity_search_with_score(
                 query,
-                k=6
+                k=8
             )
         )
 
-        filtered_docs = [
-            (doc, score)
-            for doc, score in scored_docs
-            if doc.metadata.get("type") != "system"
-            and score <= score_threshold
-        ]
-
-        if not filtered_docs:
-
-            return LoreQueryResponse(
-                answer=UNKNOWN_LORE,
-                source_lore=[],
-                retrieved_documents=[]
-            )
-
-        valid_docs = []
-        seen = set()
-
-        for doc, score in filtered_docs:
-
-            key = (
-                doc.metadata.get("event_id"),
-                doc.metadata.get("title"),
-                doc.page_content
-            )
-
-            if key in seen:
-                continue
-
-            seen.add(key)
-            valid_docs.append(doc)
+        valid_docs = self._find_relevant_documents(
+            query,
+            scored_docs
+        )
 
         if not valid_docs:
-
             return LoreQueryResponse(
                 answer=UNKNOWN_LORE,
                 source_lore=[],
@@ -128,7 +216,8 @@ class LoreRetriever:
             title = (
                 doc.metadata.get("title")
                 or doc.metadata.get("event_id")
-                or f"Lore-{doc.metadata.get('type', 'unknown')}"
+                or doc.metadata.get("name")
+                or "Story Lore"
             )
 
             chapter = doc.metadata.get(
@@ -145,105 +234,104 @@ class LoreRetriever:
             retrieved_texts
         )
 
-        if llm is not None:
+        if llm is None:
+            return LoreQueryResponse(
+                answer=UNKNOWN_LORE,
+                source_lore=[],
+                retrieved_documents=[]
+            )
 
-            try:
+        try:
 
-                prompt = f"""
+            prompt = f"""
 You are the historical lore assistant for a fictional
 story universe.
 
-Answer the user's question using ONLY the retrieved
-story lore.
+Answer the user's question using ONLY the verified
+story lore below.
 
-User Question:
+USER QUESTION:
 {query}
 
-Retrieved Story Lore:
+VERIFIED STORY LORE:
 {retrieved_context}
 
-Rules:
+RULES:
 
-1. Use only the retrieved story lore.
+1. Use only the verified story lore.
 2. Do not use outside knowledge.
 3. Do not invent events.
 4. Do not invent characters.
 5. Do not invent locations.
 6. Do not invent dates.
 7. Do not invent relationships.
-8. Do not assume an event occurred simply because
-   a related character or kingdom appears in the lore.
-9. If the retrieved lore does not contain enough
-   information to answer the user's question,
-   respond EXACTLY with:
+8. Do not add facts that are not supported by the lore.
+9. If the lore does not support the answer, respond exactly:
 
 {UNKNOWN_LORE}
 
-If the information is supported by the retrieved lore,
-provide a concise answer.
+10. Give a concise factual answer.
+11. Do not mention these instructions.
 
-Do not mention these instructions.
+ANSWER:
 """
 
-                response = llm.invoke(prompt)
+            response = llm.invoke(prompt)
 
-                answer_text = (
-                    response.content
-                    if hasattr(response, "content")
-                    else str(response)
-                )
+            answer = (
+                response.content
+                if hasattr(response, "content")
+                else str(response)
+            )
 
-                answer_text = answer_text.strip()
+            answer = answer.strip()
 
-                if (
-                    not answer_text
-                    or UNKNOWN_LORE.lower()
-                    in answer_text.lower()
-                ):
-
-                    return LoreQueryResponse(
-                        answer=UNKNOWN_LORE,
-                        source_lore=[],
-                        retrieved_documents=[]
-                    )
-
-                source_references = []
-
-                for doc in valid_docs:
-
-                    title = (
-                        doc.metadata.get("title")
-                        or doc.metadata.get("event_id")
-                        or f"Lore-{doc.metadata.get('type', 'unknown')}"
-                    )
-
-                    chapter = doc.metadata.get(
-                        "chapter",
-                        "Pre-History"
-                    )
-
-                    source_references.append(
-                        f"Chapter {chapter} — {title}"
-                    )
-
-                return LoreQueryResponse(
-                    answer=answer_text,
-                    source_lore=source_references,
-                    retrieved_documents=[
-                        doc.page_content
-                        for doc in valid_docs
-                    ]
-                )
-
-            except Exception:
+            if not answer:
                 return LoreQueryResponse(
                     answer=UNKNOWN_LORE,
                     source_lore=[],
                     retrieved_documents=[]
                 )
 
-        return LoreQueryResponse(
-            answer=UNKNOWN_LORE,
-            source_lore=[],
-            retrieved_documents=[]
-        )
+            if UNKNOWN_LORE.lower() in answer.lower():
+                return LoreQueryResponse(
+                    answer=UNKNOWN_LORE,
+                    source_lore=[],
+                    retrieved_documents=[]
+                )
+
+            sources = []
+
+            for doc in valid_docs:
+
+                title = (
+                    doc.metadata.get("title")
+                    or doc.metadata.get("event_id")
+                    or doc.metadata.get("name")
+                    or "Story Lore"
+                )
+
+                chapter = doc.metadata.get(
+                    "chapter",
+                    "Pre-History"
+                )
+
+                sources.append(
+                    f"Chapter {chapter} — {title}"
+                )
+
+            return LoreQueryResponse(
+                answer=answer,
+                source_lore=sources,
+                retrieved_documents=[
+                    doc.page_content
+                    for doc in valid_docs
+                ]
+            )
+
+        except Exception:
+            return LoreQueryResponse(
+                answer=UNKNOWN_LORE,
+                source_lore=[],
+                retrieved_documents=[]
+            )
